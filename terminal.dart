@@ -5,7 +5,7 @@ void main() async {
   List<String> history = [];
 
   while (true) {
-    stdout.write('aladadev \$ ');
+    stdout.write('aladadev ($commandCount) \$ ');
 
     String? input = stdin.readLineSync();
 
@@ -24,6 +24,8 @@ void main() async {
       print('GoodBye!');
       break;
     }
+
+    //manually clearing
     if (input.trim() == 'clear') {
       for (int i = 0; i < 50; i++) {
         print('');
@@ -31,6 +33,31 @@ void main() async {
       continue;
     }
 
+    // show history
+    if (input.trim() == 'history') {
+      if (history.isEmpty) {
+        print('no command yet');
+      } else {
+        for (int i = 0; i < history.length; i++) {
+          print('${i + 0} ${history[i]}');
+        }
+      }
+
+      continue;
+    }
+
+    // show last command when user types !!
+    if (input.trim() == '!!') {
+      if (history.isEmpty) {
+        print('No previous command');
+        continue;
+      }
+
+      input = history.last;
+      print('Running: $input');
+    }
+
+    history.add(input.trim());
     List<String> parts = input.trim().split(' ');
     // print(parts);
 
@@ -52,5 +79,7 @@ void main() async {
     } catch (error) {
       print('Command not found: $mainCommand and error is $error');
     }
+
+    commandCount++;
   }
 }
