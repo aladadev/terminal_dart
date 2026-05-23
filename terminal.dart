@@ -1,6 +1,9 @@
 import 'dart:io';
 
 void main() async {
+  int commandCount = 0;
+  List<String> history = [];
+
   while (true) {
     stdout.write('aladadev \$ ');
 
@@ -20,6 +23,12 @@ void main() async {
     if (input.trim() == 'exit') {
       print('GoodBye!');
       break;
+    }
+    if (input.trim() == 'clear') {
+      for (int i = 0; i < 50; i++) {
+        print('');
+      }
+      continue;
     }
 
     List<String> parts = input.trim().split(' ');
