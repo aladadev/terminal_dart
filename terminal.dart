@@ -1,53 +1,27 @@
 import 'dart:io';
 
-void main() async {
+Future<void> main() async {
   int commandCount = 0;
-  List<String> history = [];
+  final List<String> history = [];
 
   while (true) {
-    stdout.write('aladadev ($commandCount) \$ ');
+    stdout.write('aladadev($commandCount) \$ ');
 
     String? input = stdin.readLineSync();
 
-    if (input == null || input.trim() == '') {
+    if (input == null) {
+      continue;
+    }
+
+    input = input.trim();
+
+    if (input.isEmpty) {
       print('Please enter something to proceed');
-
       continue;
     }
 
-    if (input.toLowerCase() == 'hello') {
-      print('You typed hello. So how are you doing');
-      continue;
-    }
-
-    if (input.trim() == 'exit') {
-      print('GoodBye!');
-      break;
-    }
-
-    //manually clearing
-    if (input.trim() == 'clear') {
-      for (int i = 0; i < 50; i++) {
-        print('');
-      }
-      continue;
-    }
-
-    // show history
-    if (input.trim() == 'history') {
-      if (history.isEmpty) {
-        print('no command yet');
-      } else {
-        for (int i = 0; i < history.length; i++) {
-          print('${i + 0} ${history[i]}');
-        }
-      }
-
-      continue;
-    }
-
-    // show last command when user types !!
-    if (input.trim() == '!!') {
+    // Run previous command
+    if (input == '!!') {
       if (history.isEmpty) {
         print('No previous command');
         continue;
@@ -57,29 +31,135 @@ void main() async {
       print('Running: $input');
     }
 
-    history.add(input.trim());
-    List<String> parts = input.trim().split(' ');
-    // print(parts);
+    history.add(input);
 
-    String mainCommand = parts[0];
+    bool handled = await handleBuiltInCommand(input, history, () {
+      commandCount = 0;
+    });
 
-    dynamic args = parts.skip(1).toList();
-    // print('Arguments is $args');
-
-    try {
-      final result = await Process.run(mainCommand, args);
-
-      if (result != '') {
-        print(result.stdout);
+    if (handled) {
+      if (input == 'exit') {
+        break;
       }
 
-      if (result.stderr != '') {
-        print('Error: ${result.stderr}');
+      if (input != 'clear') {
+        commandCount++;
       }
-    } catch (error) {
-      print('Command not found: $mainCommand and error is $error');
+      continue;
     }
 
+    await executeExternalCommand(input);
+
     commandCount++;
+  }
+}
+
+Future<bool> handleBuiltInCommand(
+  String input,
+  List<String> history,
+  void Function() resetCounter,
+) async {
+  switch (input) {
+    case 'hello':
+      print('You typed hello. So how are you doing');
+      return true;
+
+    case 'exit':
+      print('GoodBye!');
+      return true;
+
+    case 'clear':
+      await clearScreen();
+      resetCounter();
+      return true;
+
+    case 'history':
+      showHistory(history);
+      return true;
+
+    case 'help':
+      showHelp();
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+Future<void> clearScreen() async {
+  try {
+    final Process process;
+
+    if (Platform.isWindows) {
+      process = await Process.start('cmd', [
+        '/c',
+        'cls',
+      ], mode: ProcessStartMode.inheritStdio);
+    } else {
+      process = await Process.start(
+        'clear',
+        [],
+        mode: ProcessStartMode.inheritStdio,
+      );
+    }
+
+    await process.exitCode;
+  } catch (_) {
+    // fallback
+    stdout.write('\x1B[2J\x1B[H');
+  }
+}
+
+void showHistory(List<String> history) {
+  if (history.isEmpty) {
+    print('No command yet');
+    return;
+  }
+
+  for (int i = 0; i < history.length; i++) {
+    print('${i + 1}. ${history[i]}');
+  }
+}
+
+void showHelp() {
+  print('''
+Available commands:
+
+hello     -> greeting
+history   -> show previous commands
+!!        -> run previous command
+clear     -> clear terminal
+help      -> show commands
+exit      -> close terminal
+
+Other commands will run on your OS
+Example:
+ls
+pwd
+whoami
+echo hello
+''');
+}
+
+Future<void> executeExternalCommand(String input) async {
+  final parts = input.split(RegExp(r'\s+'));
+
+  final String command = parts.first;
+
+  final List<String> args = parts.length > 1 ? parts.sublist(1) : [];
+
+  try {
+    final result = await Process.run(command, args, runInShell: true);
+
+    if (result.stdout.toString().isNotEmpty) {
+      stdout.write(result.stdout);
+    }
+
+    if (result.stderr.toString().isNotEmpty) {
+      stderr.write(result.stderr);
+    }
+  } catch (error) {
+    print('Command not found → $command');
+    print('Error → $error');
   }
 }
